@@ -1,0 +1,78 @@
+x-php-cli: &php-cli
+    build:
+        context: ./php-cli
+        dockerfile: Dockerfile
+        target: ${PHP_CLI_BUILD_TARGET:-${BUILD_TARGET?Build mode php-cli}}
+    working_dir: /var/project
+    volumes:
+        - ../:/var/project
+
+services:
+    # Nginx Service
+    nginx:
+        build:
+            context: ./nginx
+            dockerfile: Dockerfile
+        container_name: ${COMPOSE_PROJECT_NAME?Not project name}-nginx
+        restart: unless-stopped
+        tty: true
+        labels:
+            - traefik.enable=true
+            - traefik.http.routers.apiCarpolling.rule=Host(`$HGINX_HOST`)
+            - traefik.http.routers.apiCarpolling.entrypoints=http
+            - traefik.http.services.apiCarpolling.loadbalancer.server.port=80
+        volumes:
+            - ../:/var/project
+        ports:
+            - ${NGINX_PORT?Not nginx port}:80
+        networks:
+            - project-network
+
+    # PHP Service
+    php-fpm:
+        build:
+            context: php-fpm
+            dockerfile: Dockerfile
+            target: ${PHP_FPM_BUILD_TARGET:-${BUILD_TARGET?Build mode php-fpm}}
+        container_name: ${COMPOSE_PROJECT_NAME?Not project name}-php-fpm
+        restart: unless-stopped
+        tty: true
+        volumes:
+            - ../:/var/project
+        networks:
+            - project-network
+
+    # PHP CLI Service
+    php-cli:
+        <<: *php-cli
+        container_name: ${COMPOSE_PROJECT_NAME?Not project name}-php-cli
+        restart: no
+        networks:
+            - project-network
+
+    # Node Service
+    node:
+        build:
+            args:
+                FRONTEND_DIR: ./../../
+            context: ./../
+            dockerfile: docker/node/Dockerfile
+            target: develop
+        container_name: ${COMPOSE_PROJECT_NAME?Not project name}-node
+        ports:
+            - 3000:3000
+        command: yarn dev
+        volumes:
+            - ./../:/var/project
+            # - $FRONTEND_DIR/node_modules   # чтобы не пересекались node_modules с
+        environment:
+            API_BASE: 'http://backend:8080'
+            FRONTEND_DIR: ./../
+        depends_on:
+            - nginx
+        networks:
+            - project-network
+
+networks:
+    project-network:
+        driver: bridge
