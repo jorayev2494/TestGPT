@@ -50,29 +50,6 @@ services:
         networks:
             - project-network
 
-    # Node Service
-    node:
-        build:
-            args:
-                FRONTEND_DIR: ./../../
-            context: ./../
-            dockerfile: docker/node/Dockerfile
-            target: develop
-        container_name: ${COMPOSE_PROJECT_NAME?Not project name}-node
-        ports:
-            - 3000:3000
-        command: yarn dev
-        volumes:
-            - ./../:/var/project
-            # - $FRONTEND_DIR/node_modules   # чтобы не пересекались node_modules с
-        environment:
-            API_BASE: 'http://backend:8080'
-            FRONTEND_DIR: ./../
-        depends_on:
-            - nginx
-        networks:
-            - project-network
-
 networks:
     project-network:
         driver: bridge
